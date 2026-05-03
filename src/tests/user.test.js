@@ -8,6 +8,20 @@ app.use(express.json());
 
 beforeAll(async () => {
   await AppDataSource.initialize();
+  
+  // Create users table if not exists
+  await AppDataSource.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      name varchar NOT NULL,
+      email varchar UNIQUE NOT NULL,
+      password varchar,
+      age int,
+      role varchar DEFAULT 'user',
+      "refreshToken" varchar
+    )
+  `);
+
   const userRepository = AppDataSource.getRepository("User");
 
   app.post("/users", async (req, res) => {
@@ -28,8 +42,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  const userRepository = AppDataSource.getRepository("User");
-  await userRepository.delete({ email: "testuser@test.com" });
+  await AppDataSource.query(`DROP TABLE IF EXISTS users`);
   await AppDataSource.destroy();
 });
 
@@ -47,7 +60,6 @@ describe("POST /users", () => {
     expect(res.body.user.email).toBe("testuser@test.com");
     expect(res.body.user.role).toBe("user");
 
-    // Verify in database
     const userRepository = AppDataSource.getRepository("User");
     const userInDb = await userRepository.findOneBy({ email: "testuser@test.com" });
     expect(userInDb).not.toBeNull();
